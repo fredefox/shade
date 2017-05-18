@@ -1,19 +1,13 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Existential where
 
 import Data.Functor.Identity
-
-class RunTo m n where
-  runTo :: m a -> n a
+import Control.Monad
 
 data T m b = forall a . T (m a) (a -> b)
 
-runT :: RunTo m n => Functor n => T m b -> n b
-runT (T a f) = f <$> runTo a
-
-both :: Applicative m => T m b -> T m b -> T m (b, b)
+both :: Applicative m => T m b0 -> T m b1 -> T m (b0, b1)
 T a0 f0 `both` T a1 f1
   = T ((,) <$> a0 <*> a1) $ \(a0, a1) -> (f0 a0, f1 a1)
 
@@ -23,13 +17,24 @@ instance (Applicative m, Monoid b) => Monoid (T m b) where
     = T ((,) <$> a0 <*> a1)
     $ \(a0, a1) -> f0 a0 `mappend` f1 a1
 
-t :: T Identity String
-t = T (pure ()) show `mappend` T (pure 2) show
+class Transfer m n where
+  transfer :: m a -> n a
 
-instance RunTo Identity IO where
-  runTo (Identity v) = do
-    putStrLn "Now I'm running"
-    return v
+runT :: Transfer m n => Functor n => T m b -> n b
+runT (T a f) = f <$> transfer a
+
+instance Transfer Identity IO where
+  transfer (Identity v) = putStrLn "Transferring" *> pure v
+
+teaWithSideFx :: String -> T Identity (IO ())
+teaWithSideFx s = T (pure s) putStrLn
 
 main :: IO ()
-main = runT t >>= putStrLn
+main = do
+  r <- runT hetero
+  putStrLn r
+  join . runT . mconcat . map (teaWithSideFx . show) $ [0..10]
+  where
+    f x = T (pure x) show
+    hetero :: T Identity String
+    hetero = mconcat [ f () , f 2 , f "hej" ]
