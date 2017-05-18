@@ -1,7 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Box
-  ( box
+  ( Box()
+  , box
   , unbox
   , Transfer(..)
   ) where
@@ -29,19 +30,3 @@ class Transfer m n where
 
 unbox :: Transfer m n => Functor n => Box m b -> n b
 unbox (Box a f) = f <$> transfer a
-
-instance Transfer Identity IO where
-  transfer (Identity v) = putStrLn "Transferring" *> pure v
-
-teaWithSideFx :: String -> Box Identity (IO ())
-teaWithSideFx s = box (pure s) putStrLn
-
-main :: IO ()
-main = do
-  r <- unbox hetero
-  putStrLn r
-  join . unbox . mconcat . map (teaWithSideFx . show) $ [0..10]
-  where
-    f x = box (pure x) show
-    hetero :: Box Identity String
-    hetero = mconcat [ f () , f 2 , f "hej" ]
