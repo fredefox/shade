@@ -4,6 +4,7 @@ module Box
   ( Box()
   , box
   , unbox
+  , projection
   , Transfer(..)
   ) where
 
@@ -14,6 +15,9 @@ data Box m b = forall a . Box (m a) (a -> b)
 
 box :: m a -> (a -> b) -> Box m b
 box = Box
+
+projection :: Functor m => Box m b -> m b
+projection (Box a p) = p <$> a
 
 both :: Applicative m => Box m b0 -> Box m b1 -> Box m (b0, b1)
 Box a0 f0 `both` Box a1 f1
