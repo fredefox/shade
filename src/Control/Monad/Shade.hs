@@ -3,7 +3,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Control.Monad.Shade
-  ( Shade()
+  ( ShadeT()
+  , Shade
   , shade
   , hide
   , shadow
@@ -11,34 +12,39 @@ module Control.Monad.Shade
   ) where
 
 import Control.Monad
+import Control.Monad.Trans
+
+import Data.Functor.Identity
 
 -- | A shade consists of a hidden value and an image of that value. The hidden
 -- values are stored in a context and cannot be accessed directly.
-data Shade m b = forall a . Shade (m a) (a -> b)
+data ShadeT m b = forall a . ShadeT (m a) (a -> b)
+
+type Shade = ShadeT Identity
 
 -- | 'fmap' applies a function to the result of the projected value inside the
 -- values original context.
-instance Functor (Shade m) where
-  f `fmap` Shade m p = Shade m (f . p)
+instance Functor (ShadeT m) where
+  f `fmap` ShadeT m p = ShadeT m (f . p)
 
 -- | 'pure' is the identity projection of the original value stored in a pure
 -- context.
 --
 -- @a '<*>' b@ combines the contexts of the hidden values and applies the shadow
 -- of @b@ value onto the shadow of @a@.
-instance Applicative m => Applicative (Shade m) where
-  pure x = Shade (pure x) id
-  Shade m0 p0 <*> Shade m1 p1
-    = Shade ((,) <$> m0 <*> m1)
+instance Applicative m => Applicative (ShadeT m) where
+  pure x = ShadeT (pure x) id
+  ShadeT m0 p0 <*> ShadeT m1 p1
+    = ShadeT ((,) <$> m0 <*> m1)
     $ \(a0, a1) -> p0 a0 (p1 a1)
 
 -- | @m '>>=' f@ applies @f@ to the projected value inside the original context
 -- of @m@. The result is the a shade which becomes the source object in the
 -- result. This resut is nested twice inside the same context, and these are
 -- joined together.
-instance Monad m => Monad (Shade m) where
+instance Monad m => Monad (ShadeT m) where
   return = pure
-  Shade m0 p0 >>= f = Shade (join m) id
+  ShadeT m0 p0 >>= f = ShadeT (join m) id
     where
       m = shadow . f . p0 <$> m0
 
@@ -47,13 +53,13 @@ instance Monad m => Monad (Shade m) where
 --
 -- 'mappend' combines the contexts of two shadows and mappends their stored
 -- values.
-instance (Applicative m, Monoid b) => Monoid (Shade m b) where
+instance (Applicative m, Monoid b) => Monoid (ShadeT m b) where
   mempty = pure mempty
   mappend a b = mappend <$> a <*> b
 
 -- | The projection of the hidden value (the "shadow").
-shadow :: Functor m => Shade m b -> m b
-shadow (Shade a p) = p <$> a
+shadow :: Functor m => ShadeT m b -> m b
+shadow (ShadeT a p) = p <$> a
 
 class MonadShade m where
   -- | Insert a contextual value and its projection into a shade.
@@ -67,6 +73,29 @@ class MonadShade m where
 hide :: MonadShade m => c a -> m c a
 hide a = shade a id
 
-instance MonadShade Shade where
-  shade = Shade
-  transfer f (Shade m t) = Shade (f m) t
+instance MonadShade ShadeT where
+  shade = ShadeT
+  transfer f (ShadeT m t) = ShadeT (f m) t
+
+-- An unfinished proof that `ShadeT` is indeed a monad transformer.
+--
+-- prop i.
+--
+--   lift . return
+--     = \x -> lift . ShadeT (pure x) id
+--     = \x -> (\a -> shade a id) . (ShadeT (pure x) id)
+--     = \x -> ShadeT (ShadeT (pure x) id) id
+--     = \x -> ShadeT (pure x) id
+--     = return
+--
+-- prop ii.
+--
+--   lift (m >>= f)
+--     = ShadeT (m >>= f) id
+--
+--   lift m >>= (lift . f)
+--     = ShadeT m id >>= lift . f
+--     = ShadeT (join (shadow . lift . f . id <$> m)) id
+--     = ShadeT (join (shadow . lift . f <$> m)) id
+instance MonadTrans ShadeT where
+  lift = hide

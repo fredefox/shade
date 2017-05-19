@@ -9,10 +9,10 @@
 A shade can be used to save heterogeneous types in containers with the same
 type e.g. using a type-class as a common denominator:
 
-> showshade :: Applicative m => Show a => a -> Shade m String
+> showshade :: Applicative m => Show a => a -> ShadeT m String
 > showshade a = pure (show a)
 >
-> hetero :: Shade Identity String
+> hetero :: Shade String
 > hetero = mconcat [ showshade () , showshade 2 , showshade "hej" ]
 
 The values inside a shade are stored in a context. We can swap this context
@@ -24,7 +24,7 @@ by defining a transfer function:
 The context is switched using `transfer` and we can access the value in this
 new context by using `shadow`:
 
-> runInIO :: Shade Identity a -> IO a
+> runInIO :: Shade a -> IO a
 > runInIO = shadow . transfer idToIO
 
 The point to note about this example is that the values are stored in an
@@ -32,7 +32,7 @@ shades with the identity as context. We can manipulate this context
 including the value. We cannot, however inspect the value since it is
 universally quantified.
 
-> noisy :: String -> Shade Identity (IO ())
+> noisy :: String -> Shade (IO ())
 > noisy s = pure (putStrLn s)
 
 > main :: IO ()
