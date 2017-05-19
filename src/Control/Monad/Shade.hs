@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-| A control structure used to combine heterogenous types with delayed effects. -}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -11,8 +13,13 @@ module Control.Monad.Shade
   , transfer
   ) where
 
+import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.RWS.Class
+import Control.Monad.Error.Class
+import Control.Monad.Zip
 
 import Data.Functor.Identity
 
@@ -99,3 +106,29 @@ instance MonadShade ShadeT where
 --     = ShadeT (join (shadow . lift . f <$> m)) id
 instance MonadTrans ShadeT where
   lift = hide
+
+instance MonadState s m => MonadState s (ShadeT m) where
+  state = lift . state
+
+instance MonadReader s m => MonadReader s (ShadeT m) where
+  reader = lift . reader
+  local f = lift . local f . shadow
+
+instance MonadWriter s m => MonadWriter s (ShadeT m) where
+  writer = lift . writer
+  listen = lift . listen . shadow
+  pass = lift . pass . shadow
+
+instance MonadIO m => MonadIO (ShadeT m) where
+  liftIO = lift . liftIO
+
+instance Alternative m => Alternative (ShadeT m) where
+  empty = hide empty
+  a <|> b = hide $ shadow a <|> shadow b
+
+instance MonadError e m => MonadError e (ShadeT m) where
+  throwError = lift . throwError
+  catchError act f = lift (shadow act `catchError` \e -> shadow (f e))
+
+instance Monad m => MonadZip (ShadeT m) where
+  mzip = liftM2 (,)
