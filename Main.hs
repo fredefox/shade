@@ -4,21 +4,21 @@ module Main ( main ) where
 import Data.Functor.Identity
 import Control.Monad
 
-import Box
+import Shade
 
 idToIO :: Identity b -> IO b
 idToIO (Identity v) = putStrLn "Transferring" *> pure v
 
-runInIO :: Box Identity a -> IO a
-runInIO = project . transfer idToIO
+runInIO :: Shade Identity a -> IO a
+runInIO = shadow . transfer idToIO
 
-showbox :: Applicative m => Show a => a -> Box m String
-showbox a = pure (show a)
+showshade :: Applicative m => Show a => a -> Shade m String
+showshade a = pure (show a)
 
-hetero :: Box Identity String
-hetero = mconcat [ showbox () , showbox 2 , showbox "hej" ]
+hetero :: Shade Identity String
+hetero = mconcat [ showshade () , showshade 2 , showshade "hej" ]
 
-noisy :: String -> Box Identity (IO ())
+noisy :: String -> Shade Identity (IO ())
 noisy s = pure (putStrLn s)
 
 main :: IO ()
