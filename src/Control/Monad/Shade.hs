@@ -1,3 +1,4 @@
+{-| A control structure used to combine heterogenous types with delayed effects. -}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -15,39 +16,42 @@ import Control.Monad
 -- values are stored in a context and cannot be accessed directly.
 data Shade m b = forall a . Shade (m a) (a -> b)
 
+-- | 'fmap' applies a function to the result of the projected value inside the
+-- values original context.
 instance Functor (Shade m) where
-  -- | `fmap` applies a function to the result of the projected value inside the
-  -- values original context.
   f `fmap` Shade m p = Shade m (f . p)
 
+-- | 'pure' is the identity projection of the original value stored in a pure
+-- context.
+--
+-- @a '<*>' b@ combines the contexts of the hidden values and applies the shadow
+-- of @b@ value onto the shadow of @a@.
 instance Applicative m => Applicative (Shade m) where
-  -- | `pure` is the identity projection of the original value stored in a pure
-  -- context.
   pure x = Shade (pure x) id
-  -- | `<*>` combines the contexts of the hidden values and applies the shadow
-  -- of the latter value onto the shadow of the former.
   Shade m0 p0 <*> Shade m1 p1
     = Shade ((,) <$> m0 <*> m1)
     $ \(a0, a1) -> p0 a0 (p1 a1)
 
+-- | @m '>>=' f@ applies @f@ to the projected value inside the original context
+-- of @m@. The result is the a shade which becomes the source object in the
+-- result. This resut is nested twice inside the same context, and these are
+-- joined together.
 instance Monad m => Monad (Shade m) where
   return = pure
-  -- | `m >>= f` applies `f` to the projected value inside the original context
-  -- of `m`. The result is the a shade which becomes the source object in the
-  -- result. This resut is nested twice inside the same context, and these are
-  -- joined together.
   Shade m0 p0 >>= f = Shade (join m) id
     where
       m = shadow . f . p0 <$> m0
 
+-- | 'mempty' is simply the shadow and source of the neutral element of the
+-- stored value.
+--
+-- 'mappend' combines the contexts of two shadows and mappends their stored
+-- values.
 instance (Applicative m, Monoid b) => Monoid (Shade m b) where
-  -- | The neutral element is simply the shadow and source of the neutral
-  -- element of the stored value.
   mempty = pure mempty
-  -- | Mappend combines the contexts of two shadows and mappends their stored
-  -- values.
   mappend a b = mappend <$> a <*> b
 
+-- | Insert a contextual value and its projection into a shade.
 shade :: m a -> (a -> b) -> Shade m b
 shade = Shade
 
