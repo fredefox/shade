@@ -6,19 +6,23 @@ import Control.Monad
 
 import Box
 
-instance Transfer Identity IO where
-  transfer (Identity v) = putStrLn "Transferring" *> pure v
+idToIO :: Identity b -> IO b
+idToIO (Identity v) = putStrLn "Transferring" *> pure v
+
+runInIO :: Box Identity a -> IO a
+runInIO = project . transfer idToIO
 
 showbox :: Applicative m => Show a => a -> Box m String
-showbox x = box (pure x) show
+showbox a = pure (show a)
+
+hetero :: Box Identity String
+hetero = mconcat [ showbox () , showbox 2 , showbox "hej" ]
+
+noisy :: String -> Box Identity (IO ())
+noisy s = pure (putStrLn s)
 
 main :: IO ()
 main = do
-  r <- unbox hetero
+  r <- runInIO hetero
   putStrLn r
-  join . unbox . mconcat . map (noisy . show) $ [0..10]
-  where
-    hetero :: Box Identity String
-    hetero = mconcat [ showbox () , showbox 2 , showbox "hej" ]
-    noisy :: String -> Box Identity (IO ())
-    noisy s = box (pure s) putStrLn
+  join . runInIO . mconcat . map (noisy . show) $ [0..10]
