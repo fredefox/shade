@@ -51,20 +51,22 @@ instance (Applicative m, Monoid b) => Monoid (Shade m b) where
   mempty = pure mempty
   mappend a b = mappend <$> a <*> b
 
--- | Insert a contextual value and its projection into a shade.
-shade :: m a -> (a -> b) -> Shade m b
-shade = Shade
-
--- | Hide a boxed value inside a shade with the identity as projection.
-hide :: m a -> Shade m a
-hide a = Shade a id
-
 -- | The projection of the hidden value (the "shadow").
 shadow :: Functor m => Shade m b -> m b
 shadow (Shade a p) = p <$> a
 
--- | Changed the context of a hidden value. The first argument must be
--- universally quantified since no assumptions may be made as to what value is
--- stored inside the shade.
-transfer :: (forall a . m a -> n a) -> Shade m t -> Shade n t
-transfer f (Shade m t) = Shade (f m) t
+class MonadShade m where
+  -- | Insert a contextual value and its projection into a shade.
+  shade :: c a -> (a -> b) -> m c b
+  -- | Changed the context of a hidden value. The first argument must be
+  -- universally quantified since no assumptions may be made as to what value is
+  -- stored inside the shade.
+  transfer :: MonadShade m => (forall a . c0 a -> c1 a) -> m c0 t -> m c1 t
+
+-- | Hide a boxed value inside a shade with the identity as projection.
+hide :: MonadShade m => c a -> m c a
+hide a = shade a id
+
+instance MonadShade Shade where
+  shade = Shade
+  transfer f (Shade m t) = Shade (f m) t

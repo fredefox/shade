@@ -1,5 +1,5 @@
 name:                shade
-version:             0.1.0.4
+version:             0.1.1.0
 synopsis:            A control structure used to combine heterogenous types with delayed effects.
 description:         Please see the README.
 homepage:            https://github.com/fredefox/shade#readme
