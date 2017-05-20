@@ -5,7 +5,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Control.Monad.Shade
-  ( ShadeT()
+  ( MonadShade
+  , ShadeT()
   , Shade
   , shade
   , hide
@@ -50,7 +51,6 @@ instance Applicative m => Applicative (ShadeT m) where
 -- result. This resut is nested twice inside the same context, and these are
 -- joined together.
 instance Monad m => Monad (ShadeT m) where
-  return = pure
   ShadeT m0 p0 >>= f = ShadeT (join m) id
     where
       m = shadow . f . p0 <$> m0
@@ -118,6 +118,7 @@ instance MonadWriter s m => MonadWriter s (ShadeT m) where
   writer = lift . writer
   listen = lift . listen . shadow
   pass = lift . pass . shadow
+  tell = lift . tell
 
 instance MonadIO m => MonadIO (ShadeT m) where
   liftIO = lift . liftIO
